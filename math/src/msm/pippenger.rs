@@ -64,8 +64,10 @@ where
     // avoiding the heap allocation. We should be aware if that might be too agressive for
     // the stack and cause a potential stack overflow.
     let n_buckets = (1 << window_size) - 1;
+    let largest_bucket = (1 << window_size) >> 1 + 1;
     let mut buckets = vec![G::neutral_element(); n_buckets];
-
+    let mut buckets_but_fewer = vec![G::neutral_element(); largest_bucket];
+        //TODO: Negate the point and scalar if the MSB is set
     (0..num_windows)
         .rev()
         .map(|window_idx| {
@@ -74,13 +76,20 @@ where
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
-                let m_ij = window_unmasked & n_buckets as u64;
+                let m_ij = window_unmasked & n_buckets as u64 + carry;
+                //TODO: FIND CARRY FROM THE MSB OF THE SCALAR
                 if m_ij != 0 {
-                    let idx = (m_ij - 1) as usize;
-                    buckets[idx] = buckets[idx].operate_with(p);
+                    if (m_ij) as usize > largest_bucket {
+                        let idx = ((1 << window_size) - m_ij - 1) as usize;
+                        buckets_but_fewer[idx] = buckets_but_fewer[idx].operate_with(-p);
+                        //TODO: REPLACE THE NEGATIVE POINT p
+                    } else {
+                        let idx = (m_ij - 1) as usize;
+                        buckets_but_fewer[idx] = buckets_but_fewer[idx].operate_with(p);
+                    }
                 }
             });
-
+            //TODO: REPLACE BUCKET REDUCTION TO BUCKETS_BUT_FEWER
             // Do the reduction step for the buckets.
             buckets
                 .iter_mut()
