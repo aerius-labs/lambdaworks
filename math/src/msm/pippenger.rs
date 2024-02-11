@@ -40,8 +40,8 @@ fn optimum_window_size(data_length: usize) -> usize {
 }
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(
-    cs: &[UnsignedInteger<NUM_LIMBS>],
-    points: &[G],
+    cs1: &[UnsignedInteger<NUM_LIMBS>],
+    points1: &[G],
     window_size: usize,
 ) -> G
 where
@@ -65,31 +65,33 @@ where
     // the stack and cause a potential stack overflow.
     let n_buckets = (1 << window_size) - 1;
     let largest_bucket = (1 << window_size) >> 1 + 1;
-    let mut buckets = vec![G::neutral_element(); n_buckets];
-    let mut buckets_but_fewer = vec![G::neutral_element(); largest_bucket];
-        //TODO: Negate the point and scalar if the MSB is set
+    let mut buckets = vec![G::neutral_element(); largest_bucket];
+    let mut cs = cs1.to_vec();
+    let mut points = points1.to_vec();
+
+    //TODO: Negate the point and scalar if the MSB is set
     (0..num_windows)
         .rev()
         .map(|window_idx| {
             // Put in the right bucket the corresponding ps[i] for the current window.
-            cs.iter().zip(points).for_each(|(k, p)| {
+            cs.iter_mut().zip(points).for_each(|(k, p)| {
+                let carry = (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1;
+                k.limbs[0] &= !(1 << 63);
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
-                let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
-                let m_ij = window_unmasked & n_buckets as u64 + carry;
-                //TODO: FIND CARRY FROM THE MSB OF THE SCALAR
+                let window_unmasked = (*k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
+                let m_ij = (window_unmasked & n_buckets as u64) + carry;
                 if m_ij != 0 {
                     if (m_ij) as usize > largest_bucket {
                         let idx = ((1 << window_size) - m_ij - 1) as usize;
-                        buckets_but_fewer[idx] = buckets_but_fewer[idx].operate_with(-p);
-                        //TODO: REPLACE THE NEGATIVE POINT p
+                        k.limbs[0] |= 1 << 63;
+                        buckets[idx] = buckets[idx].operate_with(&p.neg());
                     } else {
                         let idx = (m_ij - 1) as usize;
-                        buckets_but_fewer[idx] = buckets_but_fewer[idx].operate_with(p);
+                        buckets[idx] = buckets[idx].operate_with(&p);
                     }
                 }
             });
-            //TODO: REPLACE BUCKET REDUCTION TO BUCKETS_BUT_FEWER
             // Do the reduction step for the buckets.
             buckets
                 .iter_mut()
