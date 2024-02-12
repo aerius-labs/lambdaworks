@@ -69,6 +69,12 @@ where
     let mut cs = cs1.to_vec();
     let mut points = points1.to_vec();
 
+    cs.iter_mut().zip(&mut points).for_each(|(k, P)| {
+        if (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1 == 1 {
+            // k = orderOfG - k
+            *P = P.neg();
+        }
+    });
     //TODO: Negate the point and scalar if the MSB is set
     (0..num_windows)
         .rev()
