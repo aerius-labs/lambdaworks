@@ -75,12 +75,12 @@ where
             *P = P.neg();
         }
     });
-    //TODO: Negate the point and scalar if the MSB is set
+
     (0..num_windows)
         .rev()
         .map(|window_idx| {
             // Put in the right bucket the corresponding ps[i] for the current window.
-            cs.iter_mut().zip(points).for_each(|(k, p)| {
+            cs.iter_mut().zip(points.clone()).for_each(|(k, p)| {
                 let carry = (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1;
                 k.limbs[0] &= !(1 << 63);
                 // We truncate the number to the least significative limb.
