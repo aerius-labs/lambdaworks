@@ -69,20 +69,15 @@ where
     let mut cs = cs1.to_vec();
     let mut points = points1.to_vec();
 
-    cs.iter_mut().zip(&mut points).for_each(|(k, P)| {
-        if (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1 == 1 {
-            // k = orderOfG - k
-            *P = P.neg();
-        }
-    });
-
     (0..num_windows)
         .rev()
         .map(|window_idx| {
             // Put in the right bucket the corresponding ps[i] for the current window.
             cs.iter_mut().zip(points.clone()).for_each(|(k, p)| {
-                let carry = (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1;
-                k.limbs[0] &= !(1 << 63);
+                // let carry = (*k >> (num_windows * window_size - 1)).limbs[NUM_LIMBS - 1] & 1;
+                // k.limbs[0] &= !(1 << 63);
+                // read carry
+                // unset carry
                 // We truncate the number to the least significative limb.
                 // This is ok because window_size < usize::BITS.
                 let window_unmasked = (*k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
@@ -90,7 +85,8 @@ where
                 if m_ij != 0 {
                     if (m_ij) as usize > largest_bucket {
                         let idx = ((1 << window_size) - m_ij - 1) as usize;
-                        k.limbs[0] |= 1 << 63;
+                        // k.limbs[0] |= 1 << 63;
+                        // set carry
                         buckets[idx] = buckets[idx].operate_with(&p.neg());
                     } else {
                         let idx = (m_ij - 1) as usize;
